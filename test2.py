@@ -21,10 +21,10 @@ def euclidean_distance_np(point1, point2):
 # Load a model
 model = YOLO("yolo11n-obb.pt")  # load an official model
 # model = YOLO("best.pt")  # load a custom model
-model = YOLO("result/train3/weights/best.pt")  # load a custom model
+model = YOLO("result/train/weights/best.pt")  # load a custom model
 
 
-image = cv2.imread("images/test8.jpg")
+image = cv2.imread("images/test6.jpg")
 
 # Predict with the model
 results = model(image)  # predict on an image

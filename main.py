@@ -25,6 +25,9 @@ def proper_angle(angle):
 def best_box_picker(boxes):
     # Z -> X -> Y
     # Y -> X -> Z
+    max_y = 2300 
+    max_x = 850
+    max_z = 1050
     z_dif = 80
     y_dif = 200
     new_list = []
@@ -33,13 +36,14 @@ def best_box_picker(boxes):
     boxes = sorted(boxes, key=lambda box:(box[2]))
     print("Real: ", boxes)
     for box in boxes:
-        if last_box_h <= box[2]:
-            last_box_h = box[2]
-            if len(new_list) > 0:
-                if (new_list[0][2] + z_dif) > box[2]:
+        if (box[0] <= max_x) and (box[1] <= max_y) and (box[2] <= max_z):
+            if last_box_h <= box[2]:
+                last_box_h = box[2]
+                if len(new_list) > 0:
+                    if (new_list[0][2] + z_dif) > box[2]:
+                        new_list.append(box)
+                else:
                     new_list.append(box)
-            else:
-                new_list.append(box)
     print("For Z: ", new_list)
     last_box_h = 0
     last_box_l = 5000
@@ -56,10 +60,13 @@ def best_box_picker(boxes):
     print("For Y: ", new_list)
     boxes = sorted(new_list, key=lambda box:(-box[0]))
     print("For X: ", boxes)
-    best_box = boxes[0]
+    if boxes != []:
+        best_box = boxes[0]
+    else:
+        best_box = []        
     return best_box
 
-model = YOLO('best.pt')
+model = YOLO('result/train2/weights/best.pt')
 
 port = 502
 host = "0.0.0.0"
@@ -207,48 +214,62 @@ try:
                         boxes.append([abs(x_mm), abs(y_mm), abs(z_mm), abs(a_deg), cordinates, [X_mm, Y_mm, Z_mm, angle_degrees]])
                     
                     best_box = best_box_picker(boxes) 
-                    x_gantry, y_gantry, z_gantry, r_gantry, final_cordinates, original_values = best_box[0], best_box[1], best_box[2], best_box[3], best_box[4], best_box[5]
-                    if r_gantry > 10:
-                        x_gantry = x_gantry - 70
-                        y_gantry = y_gantry - 70 + 12
-                        if r_gantry > 45:
-                            r_gantry = r_gantry - 5
-                        else:
-                            r_gantry = r_gantry + 5
+                    if best_box != []:
+                        x_gantry, y_gantry, z_gantry, r_gantry, final_cordinates, original_values = best_box[0], best_box[1], best_box[2], best_box[3], best_box[4], best_box[5]
+                        if r_gantry > 10:
+                            x_gantry = x_gantry - 70
+                            y_gantry = y_gantry - 70 + 12
+                            # if r_gantry > 45:
+                            #     r_gantry = r_gantry - 5
+                            # else:
+                            #     r_gantry = r_gantry + 5
 
-                    cv2.putText(color_image, f"X: {original_values[0]} | {round(x_gantry, 2)} mm", (int(10), int(20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                    cv2.putText(color_image, f"Y: {original_values[1]} | {round(y_gantry, 2)} mm", (int(10), int(40)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                    cv2.putText(color_image, f"Z: {original_values[2]} | {round(z_gantry, 2)} mm", (int(10), int(60)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                    cv2.putText(color_image, f"A: {original_values[3]} | {round(r_gantry, 2)} O", (int(10), int(80)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                    cv2.putText(color_image, f"N: {len(boxes)} ", (int(10), int(100)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-                    
-                    cv2.line(color_image, (final_cordinates[0]), (final_cordinates[1]), (0, 0, 255), 2, cv2.LINE_4)
-                    cv2.line(color_image, (final_cordinates[1]), (final_cordinates[2]), (0, 0, 255), 2, cv2.LINE_4) # 
-                    cv2.line(color_image, (final_cordinates[2]), (final_cordinates[3]), (0, 0, 255), 2, cv2.LINE_4)
-                    cv2.line(color_image, (final_cordinates[3]), (final_cordinates[0]), (0, 0, 255), 2, cv2.LINE_4)
-                    cv2.line(color_image, (final_cordinates[1]), (final_cordinates[1][0], final_cordinates[2][1]), (0, 0, 0), 2, cv2.LINE_4) #
-                    
-                    cv2.circle(color_image, (final_cordinates[0]), 10, (0, 0, 255), 10, cv2.LINE_4)
-                    cv2.circle(color_image, (final_cordinates[1]), 10, (0, 0, 255), 10, cv2.LINE_4)
-                    cv2.circle(color_image, (final_cordinates[2]), 10, (0, 0, 255), 10, cv2.LINE_4)
-                    cv2.circle(color_image, (final_cordinates[3]), 10, (0, 0, 255), 10, cv2.LINE_4)
-                    
-                    x_conversion = abs(int(round(float(x_gantry), 2)))
-                    y_conversion = abs(int(round(float(y_gantry), 2)))
-                    z_conversion = abs(int(round(float(z_gantry), 2)))
-                    r_conversion = abs(int(round(float(r_gantry), 2)))
-                    
-                    store.setValues(3, register3, [abs(x_conversion)])
-                    store.setValues(3, register4, [abs(y_conversion)])
-                    store.setValues(3, register5, [abs(z_conversion)])
-                    store.setValues(3, register6, [abs(r_conversion)])
+                        cv2.putText(color_image, f"X: {original_values[0]} | {round(x_gantry, 2)} mm", (int(10), int(20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                        cv2.putText(color_image, f"Y: {original_values[1]} | {round(y_gantry, 2)} mm", (int(10), int(40)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                        cv2.putText(color_image, f"Z: {original_values[2]} | {round(z_gantry, 2)} mm", (int(10), int(60)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                        cv2.putText(color_image, f"A: {original_values[3]} | {round(r_gantry, 2)} O", (int(10), int(80)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                        cv2.putText(color_image, f"N: {len(boxes)} ", (int(10), int(100)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                        
+                        cv2.line(color_image, (final_cordinates[0]), (final_cordinates[1]), (0, 0, 255), 2, cv2.LINE_4)
+                        cv2.line(color_image, (final_cordinates[1]), (final_cordinates[2]), (0, 0, 255), 2, cv2.LINE_4) # 
+                        cv2.line(color_image, (final_cordinates[2]), (final_cordinates[3]), (0, 0, 255), 2, cv2.LINE_4)
+                        cv2.line(color_image, (final_cordinates[3]), (final_cordinates[0]), (0, 0, 255), 2, cv2.LINE_4)
+                        cv2.line(color_image, (final_cordinates[1]), (final_cordinates[1][0], final_cordinates[2][1]), (0, 0, 0), 2, cv2.LINE_4) #
+                        
+                        cv2.circle(color_image, (final_cordinates[0]), 10, (0, 0, 255), 10, cv2.LINE_4)
+                        cv2.circle(color_image, (final_cordinates[1]), 10, (0, 0, 255), 10, cv2.LINE_4)
+                        cv2.circle(color_image, (final_cordinates[2]), 10, (0, 0, 255), 10, cv2.LINE_4)
+                        cv2.circle(color_image, (final_cordinates[3]), 10, (0, 0, 255), 10, cv2.LINE_4)
+                        
+                        x_conversion = abs(int(round(float(x_gantry), 2)))
+                        y_conversion = abs(int(round(float(y_gantry), 2)))
+                        z_conversion = abs(int(round(float(z_gantry), 2)))
+                        r_conversion = abs(int(round(float(r_gantry), 2)))
+                        
+                        store.setValues(3, register3, [abs(x_conversion)])
+                        store.setValues(3, register4, [abs(y_conversion)])
+                        store.setValues(3, register5, [abs(z_conversion)])
+                        store.setValues(3, register6, [abs(r_conversion)])
 
-                    sending_value = 1
-                    store.setValues(3, register2, [sending_value])
-                    print(f"sending... | register: {register2} | value: {sending_value}")
-                    cv2.imshow('Prediction: ', color_image)
-                    last_listning_value = listning_value
-                    time.sleep(2)
+                        sending_value = 1
+                        store.setValues(3, register2, [sending_value])
+                        print(f"sending... | register: {register2} | value: {sending_value}")
+                        cv2.imshow('Prediction: ', color_image)
+                        last_listning_value = listning_value
+                        time.sleep(2)
+                    else:
+                        print("No best box detected!")
+                        store.setValues(3, register3, [-1])
+                        store.setValues(3, register4, [-1])
+                        store.setValues(3, register5, [-1])
+                        store.setValues(3, register6, [-1])
+                        sending_value = 1
+                        store.setValues(3, register2, [sending_value])
+                        print(f"sending... | register: {register2} | value: {sending_value}")
+                        cv2.imshow('Prediction: ', color_image)
+                        last_listning_value = listning_value
+                        time.sleep(2)
+
                 else:
                     print("prediction failed!")
                     store.setValues(3, register3, [-1])
