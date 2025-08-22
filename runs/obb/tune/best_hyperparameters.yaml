@@ -1,0 +1,28 @@
+# 3/300 iterations complete ✅ (38239.39s)
+# Results saved to runs\obb\tune
+# Best fitness=0.96145 observed at iteration 1
+# Best fitness metrics are {'metrics/precision(B)': 0.99792, 'metrics/recall(B)': 1.0, 'metrics/mAP50(B)': 0.995, 'metrics/mAP50-95(B)': 0.95773, 'val/box_loss': 0.01604, 'val/cls_loss': 0.20519, 'val/dfl_loss': 0.91348, 'fitness': 0.96145}
+# Best fitness model is runs\obb\train
+# Best fitness hyperparameters are printed below.
+
+momentum: 0.937
+lr0: 0.01
+lrf: 0.01
+weight_decay: 0.0005
+warmup_epochs: 3.0
+warmup_momentum: 0.8
+box: 0.2
+cls: 0.2
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4
+degrees: 0.0
+translate: 0.1
+scale: 0.5
+shear: 0.0
+perspective: 0.0
+flipud: 0.0
+fliplr: 0.5
+mosaic: 1.0
+mixup: 0.0
+copy_paste: 0.0

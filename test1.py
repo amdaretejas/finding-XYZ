@@ -56,9 +56,9 @@ def get_bounding_box_angle(points):
     return angle_deg
 
 # Load a model
-model = YOLO("yolo11n-obb.pt")  # load an official model
+# model = YOLO("yolo11n-obb.pt")  # load an official model
 # model = YOLO("best.pt")  # load a custom model
-model = YOLO("result/train3/weights/best.pt")  # load a custom model 
+model = YOLO("result/train2/weights/best.pt")  # load a custom model 
 
 
 image = cv2.imread("images/test8.jpg")  #[ #1 0.86 0.91 | #1 0.87 0.90 | #1 0.94 0.93 0.28  ] 

@@ -25,7 +25,7 @@ def proper_angle(angle):
 def best_box_picker(boxes):
     # Z -> X -> Y
     # Y -> X -> Z
-    max_y = 2300 
+    max_y = 1500 
     max_x = 850
     max_z = 1050
     z_dif = 80
@@ -66,7 +66,8 @@ def best_box_picker(boxes):
         best_box = []        
     return best_box
 
-model = YOLO('result/train2/weights/best.pt')
+model = YOLO('result/train2/weights/best.pt') # best by me
+# model = YOLO('runs/obb/tune/weights/best.pt') # best by yolo
 
 port = 502
 host = "0.0.0.0"
@@ -90,8 +91,8 @@ z_gantry = 0
 r_gantry = 0
 
 x_offset = 430.72 #388.9 - 56.0
-y_offset = 1329.59 #1311.91
-z_offset = 926.47
+y_offset = 1290 #1329.59 #1311.91
+z_offset = 926 #926.47
 
 store = ModbusSlaveContext(
     di=ModbusSequentialDataBlock(0, [0]*100), # Discrete Input
@@ -135,7 +136,7 @@ try:
             continue
         
         listning_value = store.getValues(3, register1, 1)[0]
-        print(f"listning... | register: {register1} | value: {listning_value}")
+        # print(f"listning... | register: {register1} | value: {listning_value}")
 
         color_image = np.asanyarray(color_frame.get_data())
         depth_image = np.asanyarray(depth_frame.get_data())
@@ -217,9 +218,9 @@ try:
                     if best_box != []:
                         x_gantry, y_gantry, z_gantry, r_gantry, final_cordinates, original_values = best_box[0], best_box[1], best_box[2], best_box[3], best_box[4], best_box[5]
                         if r_gantry > 10:
-                            x_gantry = x_gantry - 70
-                            y_gantry = y_gantry - 70 + 12
-                            # if r_gantry > 45:
+                            x_gantry = x_gantry - 35
+                            y_gantry = y_gantry - 35
+                            # if r_gantry > 45: 
                             #     r_gantry = r_gantry - 5
                             # else:
                             #     r_gantry = r_gantry + 5

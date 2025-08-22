@@ -4,13 +4,13 @@ import shutil
 from pathlib import Path
 
 # Paths
-base_dir = Path("data/label") #your_dataset
+base_dir = Path("data/label2") # your_dataset Change here
 images_dir = base_dir / "images"
 labels_dir = base_dir / "labels"
 
 # Output folders
 output_dir = Path("data")
-output_base = output_dir / "split"
+output_base = output_dir / "split2" # Change here
 train_img_dir = output_base / "train" / "images"
 train_lbl_dir = output_base / "train" / "labels"
 val_img_dir = output_base / "val" / "images"
