@@ -1,6 +1,6 @@
 task: obb
 mode: train
-model: result/train2/weights/best.pt
+model: result2\train\weights\best.pt
 data: data.yaml
 epochs: 100
 time: null
@@ -11,7 +11,7 @@ save: true
 save_period: -1
 cache: false
 device: cpu
-workers: 8
+workers: 0
 project: result2
 name: train
 exist_ok: false
@@ -24,7 +24,7 @@ single_cls: true
 rect: false
 cos_lr: true
 close_mosaic: 10
-resume: false
+resume: result2\train\weights\best.pt
 amp: true
 fraction: 1.0
 profile: false

@@ -1,5 +1,5 @@
-train: C:\Users\Admin\Desktop\Tejas Projects\finding-XYZA\data\split2\train\images
-val: C:\Users\Admin\Desktop\Tejas Projects\finding-XYZA\data\split2\val\images
+train: C:\Users\AshtaTech Design\Desktop\finding-XYZ\data\split2\train\images
+val: C:\Users\AshtaTech Design\Desktop\finding-XYZ\data\split2\val\images
 
 nc: 1
 names: ['box']

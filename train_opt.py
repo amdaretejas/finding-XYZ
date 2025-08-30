@@ -1,7 +1,8 @@
 from ultralytics import YOLO
 
 # Load your previously fine-tuned model
-model = YOLO("result/train2/weights/best.pt")
+# model = YOLO("result/train2/weights/best.pt")
+model = YOLO("result2/train/weights/best.pt")
 
 # Train the model on the new dataset
 results = model.train(
@@ -28,6 +29,7 @@ results = model.train(
     single_cls=True,         # Keep only if you have ONE class
     multi_scale=False,       # Keep it off for OBB stability
     cos_lr=True,             # Cosine LR schedule
-    resume=False,            # Start fresh from best.pt weights
-    plots=True               # Generate plots
+    resume=True,            # Start fresh from best.pt weights
+    plots=True,               # Generate plots
+    device=-1   
 )
