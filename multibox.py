@@ -15,6 +15,16 @@ def euclidean_distance_np(point1, point2):
     point2 = np.array(point2)
     return np.linalg.norm(point1 - point2)
 
+def euclidean_distance(point1, point2):
+    return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+
+def combine_boxes(boxes):
+    for i in range(len(boxes)):
+        for j in range(len(boxes)):
+            if i != j:
+                pass
+    return boxes
+
 def proper_angle(angle):
     # if angle <= 10:
     #     angle = 0
@@ -63,7 +73,8 @@ def best_box_picker(boxes):
     if boxes != []:
         best_box = boxes[0]
     else:
-        best_box = []        
+        best_box = []
+    best_box = combine_boxes(best_box)        
     return best_box
 
 # model = YOLO('result/train2/weights/best.pt') # best by me
