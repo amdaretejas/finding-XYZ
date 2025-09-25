@@ -45,23 +45,23 @@ def best_box_picker(boxes):
             if last_box_h <= box[2]:
                 last_box_h = box[2]
                 if len(new_list) > 0:
-                    if (new_list[0][2] + 200) > box[2]: #new_list[0][2]*(z_dif/100)
+                    if (new_list[0][2] + 150) > box[2]: #new_list[0][2]*(z_dif/100)
                         new_list.append(box)
                 else:
                     new_list.append(box)
     print("For Z: ", new_list)
-    last_box_h = 0
-    last_box_l = 5000
     boxes = sorted(new_list, key=lambda box:(box[1]))
     new_list = []
     remaining_list = []
     new_combine_list = []
     while True:
+        last_box_h = 0
+        last_box_l = 5000
         for box in boxes:
             if last_box_h <= box[1]:
                 last_box_h = box[1]
                 if len(new_list) > 0:
-                    if (new_list[0][1] + 300) > box[1]:
+                    if (new_list[0][1] + max(box[6][0], box[6][1])*(y_dif/100)) > box[1]:
                         new_list.append(box)
                     else:
                         remaining_list.append(box)
@@ -73,7 +73,7 @@ def best_box_picker(boxes):
             break
         new_list = []
         remaining_list = []
-    print("For Y: ", new_list)
+    print("For Y: ", new_combine_list)
     final_list = []
     for index, box_list in enumerate(new_combine_list):
         boxes = sorted(box_list, key=lambda box:(-box[0]))
@@ -160,8 +160,11 @@ z_conversion = [-1, -1, -1, -1, -1, -1, -1, -1]
 r_conversion = [-1, -1, -1, -1, -1, -1, -1, -1]
 
 x_offset = 430.72 #388.9 - 56.0
-y_offset = 1340 #1290 #1329.59 #1311.91
+y_offset = 1290 #1329.59 #1311.91
 z_offset = 926 #926.47
+
+x_acc_offset = 100
+y_acc_offset = 50
 
 store = ModbusSlaveContext(
     di=ModbusSequentialDataBlock(0, [0]*100), # Discrete Input
@@ -277,6 +280,26 @@ try:
 
                         depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
                         X, Y, Z = rs.rs2_deproject_pixel_to_point(depth_intrin, [int(cordinates2[0]), int(cordinates2[1])], depth_value)
+                        
+                        # Get the width and height from the xywhr data (cordinates2)
+                        width_pixels = cordinates2[2]
+                        height_pixels = cordinates2[3]
+
+                        right_edge_pixel_x = int(cordinates2[0] + width_pixels / 2)
+                        right_edge_pixel_y = int(cordinates2[1])
+
+                        bottom_edge_pixel_x = int(cordinates2[0])
+                        bottom_edge_pixel_y = int(cordinates2[1] + height_pixels / 2)
+
+                        # Deproject the right edge pixel to find its 3D coordinates
+                        X_right_edge, _, _ = rs.rs2_deproject_pixel_to_point(depth_intrin, [right_edge_pixel_x, right_edge_pixel_y], depth_value)
+
+                        # Deproject the bottom edge pixel to find its 3D coordinates
+                        _, Y_bottom_edge, _ = rs.rs2_deproject_pixel_to_point(depth_intrin, [bottom_edge_pixel_x, bottom_edge_pixel_y], depth_value)
+
+                        width_mm = abs(X_right_edge - X) * 2000
+                        height_mm = abs(Y_bottom_edge - Y) * 2000
+
                         # print(f"Result: X - {X} | Y - {Y} | Z - {Z} | D - {depth_value}")
                         X_mm, Y_mm, Z_mm = X * 1000, Y * 1000, Z * 1000
                         x_mm = X_mm + x_offset
@@ -288,7 +311,7 @@ try:
                         # y_mm = abs(y_mm)
                         # z_mm = abs(z_mm)
                         # a_deg = abs(a_de)
-                        boxes.append([x_mm, y_mm, z_mm, a_deg, cordinates, [X_mm, Y_mm, Z_mm, angle_degrees], cordinates2])
+                        boxes.append([x_mm, y_mm, z_mm, a_deg, cordinates, [X_mm, Y_mm, Z_mm, angle_degrees], [width_mm, height_mm]])
                     
                     best_boxes = best_box_picker(boxes) 
                     if best_boxes != []:
@@ -296,9 +319,25 @@ try:
                         cv2.putText(color_image, f"N: {len(best_boxes)} ", (int(10), int(20)), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
                         for index, best_box in enumerate(best_boxes):
                             x_gantry, y_gantry, z_gantry, r_gantry, final_cordinates, original_values = best_box[0], best_box[1], best_box[2], best_box[3], best_box[4], best_box[5]
-                            if r_gantry > 10:
-                                x_gantry = x_gantry - 35
-                                y_gantry = y_gantry - 35
+                            # if r_gantry > 90:
+                            #     x_gantry = round(x_gantry - x_acc_offset*math.sin(r_gantry), 2)
+                            #     y_gantry = round(y_gantry + y_acc_offset*math.cos(r_gantry), 2)
+                            # else:
+                            #     x_gantry = round(x_gantry + x_acc_offset*math.cos(r_gantry), 2)
+                            #     y_gantry = round(y_gantry - y_acc_offset*math.sin(r_gantry), 2)
+
+                            print(f"x_gantry - {x_gantry} | offset {math.sin(r_gantry)} || y_gantry - {y_gantry} | offset {math.cos(r_gantry)}")
+                            # if r_gantry > 10:
+                            if True:
+                                x_gantry = x_gantry - 40
+                                y_gantry = y_gantry + 20
+                                # if r_gantry > 90:
+                                #     x_gantry = x_gantry + 65
+                                #     y_gantry = y_gantry - 35
+                                # else:
+                                #     x_gantry = x_gantry - 100
+                                #     y_gantry = y_gantry - 45
+
                                 # if r_gantry > 45: 
                                 #     r_gantry = r_gantry - 5
                                 # else:
