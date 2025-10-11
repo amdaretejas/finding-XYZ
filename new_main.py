@@ -138,7 +138,6 @@ with open(camera_calibration_path, "r") as f:
 print(f"Json File Uploaded")
 
 advanced_mode.load_json(json.dumps(json_obj))
-
 depth_sensor = device.first_depth_sensor()
 
 if depth_sensor.get_option(rs.option.enable_auto_exposure):
@@ -163,6 +162,9 @@ hole_filling_filter = rs.hole_filling_filter()
 hole_filling_filter.set_option(rs.option.holes_fill, fill_mode)
 print(f"Hole Filling Filter Activated")
 
+prediction = False
+last_listning_value = 0
+
 try:
     while True:
         store.setValues(3, register36, [1])
@@ -182,8 +184,8 @@ try:
         depth_image = np.asanyarray(colorizer.colorize(depth_filter).get_data())
         color_image = np.asanyarray(color_frame.get_data())
         
-        color_image = cv2.resize(color_image, (640, 480))
-        depth_image = cv2.resize(depth_image, (640, 480))
+        # color_image = cv2.resize(color_image, (640, 480))
+        # depth_image = cv2.resize(depth_image, (640, 480))
 
         if last_listning_value == 0 and listning_value == 1:
             prediction = True
@@ -289,10 +291,10 @@ try:
                     best_boxes = best_box_picker(boxes, box_limit) 
                     if best_boxes != []:
                         print("boxes prediction successful!")
-                        cv2.putText(depth_image, f"N: {len(best_boxes)} ", (int(10), int(20)), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
+                        cv2.putText(color_image, f"N: {len(best_boxes)} ", (int(10), int(20)), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
                         for index, best_box in enumerate(best_boxes):
                             x_gantry, y_gantry, z_gantry, r_gantry, cordinates, cordinates2, original_values = best_box[0], best_box[1], best_box[2], best_box[3], best_box[4], best_box[5]
-                            cv2.putText(depth_image, f"X: px {round(cordinates2[0], 2)} mm {round(x_gantry, 2)} | Y: px {round(cordinates2[1], 2)} mm {round(y_gantry, 2)} | Z: px {round(cordinates2[2], 2)} mm {round(z_gantry, 2)} | A: {round(r_gantry, 2)} ", (int(10), int(40) + 20*index), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
+                            cv2.putText(color_image, f"X: px {round(cordinates2[0], 2)} mm {round(x_gantry, 2)} | Y: px {round(cordinates2[1], 2)} mm {round(y_gantry, 2)} | Z: px {round(cordinates2[2], 2)} mm {round(z_gantry, 2)} | A: {round(r_gantry, 2)} ", (int(10), int(40) + 20*index), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
                             
                             cv2.line(color_image, (cordinates[0]), (cordinates[1]), (0, 0, 255), 2, cv2.LINE_4)
                             cv2.line(color_image, (cordinates[1]), (cordinates[2]), (0, 0, 255), 2, cv2.LINE_4)
@@ -466,6 +468,8 @@ try:
                     time.sleep(2)
         cv2.line(color_image, ([frame_center[0], 0]), ([frame_center[0], frame_size[1]]), (0, 255, 255), 2, cv2.LINE_4)
         cv2.line(color_image, ([0, frame_center[1]]), ([frame_size[0], frame_center[1]]), (0, 255, 255), 2, cv2.LINE_4)
+        color_image = cv2.resize(color_image, (640, 480))
+        depth_image = cv2.resize(depth_image, (640, 480))
         combined_image = np.hstack((color_image, depth_image))
         cv2.imshow('RGB + Depth', combined_image)
         if cv2.waitKey(1) & 0xFF == ord('q'):
