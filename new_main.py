@@ -10,13 +10,54 @@ import threading
 from ultralytics import YOLO
 import time
 import json
+import signal
+import sys
 from new_function import euclidean_distance, euclidean_distance_np, best_box_picker
 
+
+# ========== SAFETY SETUP ==========
+
+stop_event = threading.Event()
+
+def exit_gracefully(sig=None, frame=None):
+    """Gracefully stop Modbus, RealSense, and OpenCV"""
+    global pipeline, context
+    print("\n[EXIT] Shutdown signal received. Cleaning up...")
+    stop_event.set()
+
+    try:
+        store.setValues(3, register36, [0])
+    except Exception:
+        pass
+
+    try:
+        if pipeline:
+            print("[EXIT] Stopping RealSense pipeline...")
+            pipeline.stop()
+    except Exception as e:
+        print(f"[EXIT] Error stopping RealSense pipeline: {e}")
+
+    try:
+        cv2.destroyAllWindows()
+        print("[EXIT] Closed all OpenCV windows.")
+    except Exception:
+        pass
+
+    print("[EXIT] Cleanup complete. Exiting program.")
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, exit_gracefully)
+signal.signal(signal.SIGTERM, exit_gracefully)
+
+
+
+# ========== MODEL AND CAMERA CONFIG ==========
 model = YOLO('result2/train/weights/best.pt')
 
 camera_calibration_path = "/home/smart/HighAccuracySettings.json"
 
-port = 502
+port = 8000
 host = "0.0.0.0"
 x_px_size = 1280
 y_px_size = 720
@@ -29,7 +70,7 @@ exposer = 10000
 gain = 16
 laser_power = 360
 fill_mode = 2
-neighbour_px = 5
+neighbour_px = 1
 
 register1 = 8 # PLC WILL SEND FOR ACTIVATING THE PREDICTION PROCESS
 register2 = 9 # PLC WILL RECIEVE FOR PREDICTION COMPLITION
@@ -89,18 +130,26 @@ y_conversion = [-1, -1, -1, -1, -1, -1, -1, -1]
 z_conversion = [-1, -1, -1, -1, -1, -1, -1, -1]
 r_conversion = [-1, -1, -1, -1, -1, -1, -1, -1]
 
-x_offset = 440 
-y_offset = 1280   
-z_offset = 1080 
+x_offset = 440 - 152 + 90
+y_offset = 1280 + 59.42 - 20 - 125
+z_offset = 1080 + 29.81 - 10 
 
-x_box_min = 1600
-x_box_max = 0
-y_box_min = 1200
-y_box_max = 700
-z_box_min = 1400
-z_box_max = 150
+x_box_max = 850#800 #1200
+x_box_min = 0
+y_box_max = 1605#1535 #1600
+y_box_min = 680 #750
+z_box_max = 1130#1400
+z_box_min = 0
 y_dif = 50 #%
 z_dif = 50 #%
+
+x_acc_offset = -100
+y_acc_offset = -50
+gripper_offset = 75
+box_length = 430 + 30 - 300
+box_width = 360 + 30 - 300
+
+angle_sign = "positive"
 
 box_limit = [x_box_max, x_box_min, y_box_max, y_box_min, z_box_max, z_box_min, y_dif, z_dif]
 
@@ -146,7 +195,7 @@ if depth_sensor.get_option(rs.option.enable_auto_exposure):
 exposure_range = depth_sensor.get_option_range(rs.option.exposure)
 print(f"Exposer range: {exposure_range.min} ~ {exposure_range.max}") 
 depth_sensor.set_option(rs.option.exposure, exposer)
-print(f"Eexposer Activated at ~ {exposer}")
+print(f"Exposer Activated at ~ {exposer}")
 
 gain_range = depth_sensor.get_option_range(rs.option.gain)
 print(f"Gain range: {gain_range.min} ~ {gain_range.max}") 
@@ -162,15 +211,24 @@ hole_filling_filter = rs.hole_filling_filter()
 hole_filling_filter.set_option(rs.option.holes_fill, fill_mode)
 print(f"Hole Filling Filter Activated")
 
+align_to = rs.stream.color
+align = rs.align(align_to)
+
 prediction = False
 last_listning_value = 0
 
 try:
     while True:
         store.setValues(3, register36, [1])
+        if sending_value == 1:
+            sending_value = 0
+            store.setValues(3, register2, [sending_value])
+            print(f"sending... | register: {register2} | value: {sending_value}")
+            
         frames = pipeline.wait_for_frames()
-        depth_frame = frames.get_depth_frame()
-        color_frame = frames.get_color_frame()
+        align_frame = align.process(frames)
+        depth_frame = align_frame.get_depth_frame()
+        color_frame = align_frame.get_color_frame()
 
         if not depth_frame or not color_frame:
             continue
@@ -217,6 +275,13 @@ try:
                 if list(xywhr) != []:
                     for i, box in enumerate(xyxyxyxy):
                         print(f"{i}] Prediction successful!")
+                        X_extra = 0
+                        Y_extra = 0
+                        X_angle = 0
+                        Y_angle = 0
+                        angle_degrees = 0
+                        angle_radians = 0
+                        calculated_angle = 0
                         conf = confs[i].item()
                         cls = int(classes[i].item())
                         cordinates = box.tolist()
@@ -243,7 +308,8 @@ try:
                         depth_value6 = round(depth_frame.get_distance(int(cordinates2[0])-neighbour_px, int(cordinates2[1])-neighbour_px), 6)
                         depth_value7 = round(depth_frame.get_distance(int(cordinates2[0])+neighbour_px, int(cordinates2[1])-neighbour_px), 6)
                         depth_value8 = round(depth_frame.get_distance(int(cordinates2[0])-neighbour_px, int(cordinates2[1])+neighbour_px), 6)
-
+                        print(f"{i} D1: {depth_value} D2: {depth_value1} D3: {depth_value2} D4: {depth_value3} D5: {depth_value4} D6: {depth_value5} D7: {depth_value6} D8: {depth_value7} D9: {depth_value8}")
+                        print(f"Four point cordinates: {cordinates} | Center: {[cordinates2[0], cordinates2[1]]}")
                         depth_mm = int((depth_value*1000  + depth_value1*1000 + depth_value2*1000 + depth_value3*1000 + depth_value4*1000 + depth_value5*1000 + depth_value6*1000 + depth_value7*1000 + depth_value8*1000)/9)
                         print(f"{i}] Avrage Depth: {depth_mm} mm and Center Depth: {depth_value*1000} mm")
 
@@ -255,9 +321,13 @@ try:
                         if hypotenuse2 > hypotenuse1:
                             angle_radians = math.acos(adjacent_side_y/hypotenuse2)
                             angle_degrees = round(math.degrees(angle_radians), 2)
+                            print(f"{i}] positive")
+                            angle_sign = "positive"
                         else:
                             angle_radians = math.acos(adjacent_side_x/hypotenuse1)
                             angle_degrees = round(math.degrees(angle_radians) + 90, 2)
+                            print(f"{i}] negitive")
+                            angle_sign = "negitive"
 
                         depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
                         X, Y, Z = rs.rs2_deproject_pixel_to_point(depth_intrin, [int(cordinates2[0]), int(cordinates2[1])], depth_value)
@@ -276,24 +346,74 @@ try:
 
                         width_mm = abs(X_right_edge - X) * 2000
                         height_mm = abs(Y_bottom_edge - Y) * 2000
+                        print(f"{i}] Center X: {X} mm | Center Y: {Y} mm | Center Z: {Z}")
                         
                         X_mm = X*1000
                         Y_mm = Y*1000
-                        print(f"{i}] Center X: {X_mm} mm | Center Y: {Y_mm} mm | Avrage Z: {Z_mm} | Center A: {A_deg} by realsense")
                         
                         X_mm = X_mm + x_offset
                         X_mm = X_mm if X_mm > 0 else 0
                         Y_mm = y_offset - Y_mm
                         Z_mm = depth_mm - z_offset 
-                        A_deg = angle_degrees
-                        boxes.append([X_mm, Y_mm, Z_mm, A_deg, cordinates, [cordinates2[0], cordinates2[1], depth_mm], [width_mm, height_mm]])
+                        # A_deg = angle_degrees
+                        calculated_angle = abs(math.degrees(math.atan2((cordinates[1][1] - cordinates[0][1]),(cordinates[1][0] - cordinates[0][0]))))
+                        if angle_sign == "positive":
+                            A_deg = calculated_angle
+                        else: 
+                            A_deg = calculated_angle + 90
+                            
 
-                    best_boxes = best_box_picker(boxes, box_limit) 
+                        if A_deg <= 90:
+                            X_angle = math.sin(math.radians(A_deg))
+                            Y_angle = math.cos(math.radians(A_deg))
+                            X_extra = -gripper_offset*X_angle
+                            Y_extra = gripper_offset*Y_angle
+                            X_mm = round(X_mm + X_extra, 2)
+                            Y_mm = round(Y_mm + Y_extra, 2)
+                            X_mm = X_mm if X_mm > 0 else 0
+                            print(f"positive+ {A_deg} degrees, {math.radians(A_deg)} radians") 
+                        else:
+                            X_angle = math.sin(abs(math.radians(A_deg-180)))
+                            Y_angle = math.cos(abs(math.radians(A_deg-180)))
+                            X_extra = gripper_offset*X_angle
+                            Y_extra = gripper_offset*Y_angle
+                            X_mm = round(X_mm + X_extra, 2)
+                            Y_mm = round(Y_mm + Y_extra, 2) 
+                            X_mm = X_mm if X_mm > 0 else 0
+                            print(f"negative- {A_deg} degrees, {math.radians(A_deg)} radians") 
+                        # if angle_sign == "positive":
+                        #     X_extra = - 65 * math.sin(angle_degrees)
+                        #     Y_extra = 65 * math.cos(angle_degrees)
+                        #     X_mm = round(X_mm + X_extra, 2)
+                        #     Y_mm = round(Y_mm + Y_extra, 2) 
+                        # else:
+                        #     X_extra = 65 * math.sin(abs(90 - angle_degrees))
+                        #     Y_extra = 65 * math.cos(angle_degrees)
+                        #     X_mm = round(X_mm + X_extra, 2)
+                        #     Y_mm = round(Y_mm + Y_extra, 2)
+
+
+                        # if A_deg > 90:
+                        #     X_extra = x_acc_offset*math.sin(A_deg)
+                        #     Y_extra = y_acc_offset*math.cos(A_deg)
+                        #     X_mm = round(X_mm - X_extra, 2)
+                        #     Y_mm = round(Y_mm + Y_extra, 2)
+                        # else:
+                        #     X_extra = x_acc_offset*math.cos(A_deg)
+                        #     Y_extra = y_acc_offset*math.sin(A_deg)
+                        #     X_mm = round(X_mm + X_extra, 2)
+                        #     Y_mm = round(Y_mm - Y_extra, 2)
+                        print(f"{i}] X extra: {X_extra}/{X_angle} | Y extra: {Y_extra}/{Y_angle}")
+                        print(f"{i} X1: {cordinates[0]} X2: {cordinates[1]} X3: {cordinates[2]} X4: {cordinates[3]}")
+                        print(f"{i}] Center X: {X_mm} mm | Center Y: {Y_mm} mm | Avrage Z: {Z_mm} | Center A: {A_deg}/{angle_degrees}/{calculated_angle} | Length: {width_mm} | Width: {height_mm}")
+                        boxes.append([X_mm, Y_mm, Z_mm, A_deg, cordinates, [cordinates2[0], cordinates2[1], depth_mm], [min(width_mm, height_mm)-5, max(width_mm, height_mm)-10]])
+
+                    best_boxes = best_box_picker(boxes, box_limit, [box_width, box_length]) 
                     if best_boxes != []:
                         print("boxes prediction successful!")
                         cv2.putText(color_image, f"N: {len(best_boxes)} ", (int(10), int(20)), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
                         for index, best_box in enumerate(best_boxes):
-                            x_gantry, y_gantry, z_gantry, r_gantry, cordinates, cordinates2, original_values = best_box[0], best_box[1], best_box[2], best_box[3], best_box[4], best_box[5]
+                            x_gantry, y_gantry, z_gantry, r_gantry, cordinates, cordinates2, original_values = best_box[0], best_box[1], best_box[2], best_box[3], best_box[4], best_box[5], best_box[6]
                             cv2.putText(color_image, f"X: px {round(cordinates2[0], 2)} mm {round(x_gantry, 2)} | Y: px {round(cordinates2[1], 2)} mm {round(y_gantry, 2)} | Z: px {round(cordinates2[2], 2)} mm {round(z_gantry, 2)} | A: {round(r_gantry, 2)} ", (int(10), int(40) + 20*index), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
                             
                             cv2.line(color_image, (cordinates[0]), (cordinates[1]), (0, 0, 255), 2, cv2.LINE_4)
@@ -357,7 +477,7 @@ try:
                         sending_value = 1
                         store.setValues(3, register2, [sending_value])
                         print(f"sending... | register: {register2} | value: {sending_value}")
-                        cv2.imshow('Prediction: ', color_image)
+                        # cv2.imshow('Prediction: ', cv2.resize(color_image, (640, 480)))
                         last_listning_value = listning_value
                         time.sleep(2)
                     else:
@@ -408,7 +528,7 @@ try:
                         sending_value = 1
                         store.setValues(3, register2, [sending_value])
                         print(f"sending... | register: {register2} | value: {sending_value}")
-                        cv2.imshow('Prediction: ', color_image)
+                        # cv2.imshow('Prediction: ', color_image)
                         last_listning_value = listning_value
                         time.sleep(2)
                 else:
@@ -463,7 +583,7 @@ try:
                     sending_value = 1
                     store.setValues(3, register2, [sending_value])
                     print(f"sending... | register: {register2} | value: {sending_value}")
-                    cv2.imshow('Prediction: ', color_image)
+                    # cv2.imshow('Prediction: ', color_image)
                     last_listning_value = listning_value
                     time.sleep(2)
         cv2.line(color_image, ([frame_center[0], 0]), ([frame_center[0], frame_size[1]]), (0, 255, 255), 2, cv2.LINE_4)
@@ -471,12 +591,12 @@ try:
         color_image = cv2.resize(color_image, (640, 480))
         depth_image = cv2.resize(depth_image, (640, 480))
         combined_image = np.hstack((color_image, depth_image))
-        cv2.imshow('RGB + Depth', combined_image)
+        # cv2.imshow('RGB + Depth', combined_image)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 finally:
     store.setValues(3, register36, [0])
-    pipeline.stop()
+    # pipeline.stop()
     cv2.destroyAllWindows()
     
 store.setValues(3, register36, [0])
