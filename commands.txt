@@ -1,0 +1,43 @@
+# Create and edit the service file
+sudo nano /etc/systemd/system/finding-xyz.service
+
+# Reload systemd to apply changes
+sudo systemctl daemon-reload
+
+# Enable service to start on boot
+sudo systemctl enable finding-xyz.service
+
+# Start the service immediately
+sudo systemctl start finding-xyz.service
+
+# Check the service status
+sudo systemctl status finding-xyz.service
+
+# Stop the service
+sudo systemctl stop finding-xyz.service
+
+# Disable the service from starting at boot
+sudo systemctl disable finding-xyz.service
+
+# Check the service status again
+sudo systemctl status finding-xyz.service
+
+# See redirected ports
+sudo iptables -t nat -L PREROUTING -n -v
+
+# See iptables rules with line numbers
+sudo iptables -t nat -L --line-numbers
+
+# to delete the redirect route
+sudo iptables -t nat -D PREROUTING 1
+
+# to see the logs of terminal
+journalctl -u xyza_prediction.service -f
+
+# to redirect the port 
+sudo iptables -t nat -A PREROUTING -p tcp --dport 502 -j REDIRECT --to-port 8000
+
+# save any thing after making changes in redirecting
+sudo netfilter-persistent save 
+
+

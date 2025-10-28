@@ -16,18 +16,21 @@ def euclidean_distance_np(point1, point2):
     return np.linalg.norm(point1 - point2)
 
 def proper_angle(angle):
-    # if angle <= 10:
-    #     angle = 0
-    # elif angle >= 170:
-    #     angle = 0
+    if angle >= 175:
+        angle = 0
+    elif angle >= 100:
+        angle = 99
     return angle
 
 def best_box_picker(boxes):
     # Z -> X -> Y
     # Y -> X -> Z
-    max_y = 1500 
+    max_y = 1620 
     max_x = 850
     max_z = 1050
+    min_y = 800 
+    min_x = -40
+    min_z = 150
     z_dif = 80
     y_dif = 200
     new_list = []
@@ -36,7 +39,7 @@ def best_box_picker(boxes):
     boxes = sorted(boxes, key=lambda box:(box[2]))
     print("Real: ", boxes)
     for box in boxes:
-        if (box[0] <= max_x) and (box[1] <= max_y) and (box[2] <= max_z):
+        if (box[0] <= max_x) and (box[1] <= max_y) and (box[2] <= max_z) and (box[0] >= min_x) and (box[1] >= min_y) and (box[2] >= min_z):
             if last_box_h <= box[2]:
                 last_box_h = box[2]
                 if len(new_list) > 0:
@@ -67,10 +70,10 @@ def best_box_picker(boxes):
     return best_box
 
 # model = YOLO('result/train2/weights/best.pt') # best by me
-model = YOLO('result2/train/weights/best.pt') # best by me
+model = YOLO('result2/train/weights/best.pt')
 # model = YOLO('runs/obb/tune/weights/best.pt') # best by yolo
 
-port = 502
+port = 8000
 host = "0.0.0.0"
 frame_size = [640, 480]
 frame_center = [int(frame_size[0]/2), int(frame_size[1]/2)]
@@ -208,12 +211,18 @@ try:
 
                         depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
                         X, Y, Z = rs.rs2_deproject_pixel_to_point(depth_intrin, [int(cordinates2[0]), int(cordinates2[1])], depth_value)
+                        # print(f"Result: X - {X} | Y - {Y} | Z - {Z} | D - {depth_value}")
                         X_mm, Y_mm, Z_mm = X * 1000, Y * 1000, Z * 1000
                         x_mm = X_mm + x_offset
+                        # x_mm = x_mm if x_mm > 0 else 0
                         y_mm = y_offset - Y_mm
                         z_mm = Z_mm - z_offset
-                        a_deg = proper_angle(angle_degrees)
-                        boxes.append([abs(x_mm), abs(y_mm), abs(z_mm), abs(a_deg), cordinates, [X_mm, Y_mm, Z_mm, angle_degrees]])
+                        a_deg = proper_angle(angle_degrees + 3)
+                        # x_mm = abs(x_mm)
+                        # y_mm = abs(y_mm)
+                        # z_mm = abs(z_mm)
+                        # a_deg = abs(a_de)
+                        boxes.append([x_mm, y_mm, z_mm, a_deg, cordinates, [X_mm, Y_mm, Z_mm, angle_degrees]])
                     
                     best_box = best_box_picker(boxes) 
                     if best_box != []:
